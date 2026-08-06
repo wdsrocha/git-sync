@@ -1,0 +1,76 @@
+#!/bin/bash
+# Pulls every git repository directly under GIT_SYNC_DEV_DIR (default: ~/dev),
+# skipping anything that isn't safely fast-forwardable. Meant to be run on a
+# timer (see launchd/), but safe to run by hand too.
+set -uo pipefail
+PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH
+
+# Resolve the real path of this file, following symlinks, so git-sync.sh
+# keeps working correctly once `install` symlinks it into ~/.local/bin.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/config.sh"
+
+mkdir -p "$GIT_SYNC_STATE_DIR"
+STATE_FILE="$GIT_SYNC_STATE_DIR/last_notified_date"
+ISSUES_FILE=$(mktemp)
+trap 'rm -f "$ISSUES_FILE"' EXIT
+
+is_excluded() {
+  local name="$1"
+  for excluded in $GIT_SYNC_EXCLUDE_DIRS; do
+    [ "$name" = "$excluded" ] && return 0
+  done
+  return 1
+}
+
+for repo in "$GIT_SYNC_DEV_DIR"/*/; do
+  repo="${repo%/}"
+  name=$(basename "$repo")
+
+  is_excluded "$name" && continue
+  [ -d "$repo/.git" ] || continue
+
+  (
+    branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+
+    if [ -z "$upstream" ]; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - NO UPSTREAM for: $name (branch=$branch) - pull skipped" >> "$GIT_SYNC_LOG_FILE"
+      echo "no_upstream:$name" >> "$ISSUES_FILE"
+      exit 0
+    fi
+
+    if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - NON-MAIN BRANCH for: $name (branch=$branch) - pull skipped" >> "$GIT_SYNC_LOG_FILE"
+      echo "non_main_branch:$name" >> "$ISSUES_FILE"
+      exit 0
+    fi
+
+    if ! git -C "$repo" pull --ff-only --quiet > /dev/null 2>&1; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - FAST-FORWARD FAILED for: $name" >> "$GIT_SYNC_LOG_FILE"
+      echo "pull_failed:$name" >> "$ISSUES_FILE"
+    fi
+  ) &
+done
+wait
+
+if [ -s "$ISSUES_FILE" ]; then
+  today=$(date '+%Y-%m-%d')
+  hour=$((10#$(date '+%H')))
+  last_notified=""
+  [ -f "$STATE_FILE" ] && last_notified=$(cat "$STATE_FILE")
+
+  if [ "$last_notified" != "$today" ] && [ "$hour" -ge "$GIT_SYNC_NOTIFY_HOUR" ]; then
+    total=$(wc -l < "$ISSUES_FILE" | tr -d ' ')
+    repos=$(cut -d: -f2 "$ISSUES_FILE" | sort -u | paste -sd ', ' -)
+    osascript -e "display notification \"$total repo(s) need attention: $repos. See $GIT_SYNC_LOG_FILE\" with title \"git-sync\"" 2>/dev/null || true
+    echo "$today" > "$STATE_FILE"
+  fi
+fi

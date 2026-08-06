@@ -1,0 +1,108 @@
+#!/bin/bash
+# Management CLI for git-sync: wires the worker script and the launchd job
+# into place (or tears them down again).
+set -euo pipefail
+
+# Resolve the real path of this file, following symlinks, so `git-sync`
+# keeps working correctly once `install` symlinks it into ~/.local/bin.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+REPO_DIR="$(cd "$BIN_DIR/.." && pwd)"
+# shellcheck disable=SC1091
+source "$REPO_DIR/lib/config.sh"
+
+LABEL="${GIT_SYNC_LABEL:-local.git-sync}"
+PLIST_PATH="$HOME/Library/LaunchAgents/${LABEL}.plist"
+WORKER_LINK="$HOME/.local/bin/git-sync.sh"
+CLI_LINK="$HOME/.local/bin/git-sync"
+INTERVAL="${GIT_SYNC_INTERVAL:-300}"
+STDERR_PATH="${GIT_SYNC_STDERR:-/tmp/${LABEL}.err}"
+STDOUT_PATH="${GIT_SYNC_STDOUT:-/tmp/${LABEL}.out}"
+
+usage() {
+  cat <<EOF
+Usage: git-sync <command>
+
+Commands:
+  install     Symlink the worker script and CLI into ~/.local/bin, generate
+              and load the launchd job
+  uninstall   Unload the launchd job and remove the symlinks it created
+  status      Show whether the launchd job is loaded and the last log lines
+  logs        Follow the sync log
+  run         Run the sync once, immediately, without going through launchd
+
+Configuration (env vars, or \$HOME/.config/git-sync/config.sh):
+  GIT_SYNC_DEV_DIR       directory to scan for repos (default: \$HOME/dev)
+  GIT_SYNC_EXCLUDE_DIRS  space-separated directory names to skip (default: wt)
+  GIT_SYNC_NOTIFY_HOUR   earliest local hour to send the daily digest (default: 9)
+  GIT_SYNC_LABEL         launchd label (default: local.git-sync)
+  GIT_SYNC_INTERVAL      seconds between runs (default: 300)
+EOF
+}
+
+cmd_install() {
+  mkdir -p "$HOME/.local/bin" "$HOME/Library/LaunchAgents"
+
+  ln -sf "$REPO_DIR/git-sync.sh" "$WORKER_LINK"
+  echo "Symlinked $WORKER_LINK -> $REPO_DIR/git-sync.sh"
+
+  ln -sf "$REPO_DIR/bin/git-sync" "$CLI_LINK"
+  echo "Symlinked $CLI_LINK -> $REPO_DIR/bin/git-sync"
+
+  sed \
+    -e "s|{{LABEL}}|$LABEL|g" \
+    -e "s|{{SCRIPT_PATH}}|$WORKER_LINK|g" \
+    -e "s|{{INTERVAL}}|$INTERVAL|g" \
+    -e "s|{{STDERR_PATH}}|$STDERR_PATH|g" \
+    -e "s|{{STDOUT_PATH}}|$STDOUT_PATH|g" \
+    "$REPO_DIR/launchd/git-sync.plist.template" > "$PLIST_PATH"
+  echo "Generated $PLIST_PATH"
+
+  launchctl unload "$PLIST_PATH" >/dev/null 2>&1 || true
+  launchctl load "$PLIST_PATH"
+  echo "Loaded launchd job: $LABEL"
+}
+
+cmd_uninstall() {
+  if [ -f "$PLIST_PATH" ]; then
+    launchctl unload "$PLIST_PATH" >/dev/null 2>&1 || true
+    rm -f "$PLIST_PATH"
+    echo "Removed $PLIST_PATH"
+  fi
+  for link in "$WORKER_LINK" "$CLI_LINK"; do
+    if [ -L "$link" ]; then
+      rm -f "$link"
+      echo "Removed symlink $link"
+    fi
+  done
+}
+
+cmd_status() {
+  echo "--- launchctl ---"
+  launchctl list | grep "$LABEL" || echo "(not loaded)"
+  echo "--- last log lines ($GIT_SYNC_LOG_FILE) ---"
+  tail -n 10 "$GIT_SYNC_LOG_FILE" 2>/dev/null || echo "(no log yet)"
+}
+
+cmd_logs() {
+  touch "$GIT_SYNC_LOG_FILE"
+  tail -f "$GIT_SYNC_LOG_FILE"
+}
+
+cmd_run() {
+  bash "$REPO_DIR/git-sync.sh"
+}
+
+case "${1:-}" in
+  install) cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  status) cmd_status ;;
+  logs) cmd_logs ;;
+  run) cmd_run ;;
+  *) usage; exit 1 ;;
+esac
