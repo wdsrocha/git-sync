@@ -3,8 +3,8 @@
 Keeps every git repository in a directory (by default `~/dev`) up to date with
 its remote, automatically, in the background, on macOS via `launchd`.
 
-It only ever does a `git pull --ff-only`. It never touches a repo that isn't
-safely fast-forwardable, and it never switches branches for you:
+It only ever does a `git pull --ff-only --prune`. It never touches a repo that
+isn't safely fast-forwardable, and it never switches branches for you:
 
 - Repos on a branch other than `main`/`master` are left alone.
 - Repos whose current branch has no upstream (or a deleted/gone upstream) are
@@ -93,7 +93,7 @@ For every immediate subdirectory of `GIT_SYNC_DEV_DIR` that isn't in
 1. If the current branch has no valid upstream, skip and log `no_upstream`.
 2. If the current branch isn't `main` or `master`, skip and log
    `non_main_branch`.
-3. Otherwise, run `git pull --ff-only --quiet`. If that fails, log
+3. Otherwise, run `git pull --ff-only --prune --quiet`. If that fails, log
    `pull_failed`.
 
 All three cases feed into the same once-a-day notification digest.

@@ -53,7 +53,7 @@ for repo in "$GIT_SYNC_DEV_DIR"/*/; do
       exit 0
     fi
 
-    if ! git -C "$repo" pull --ff-only --quiet > /dev/null 2>&1; then
+    if ! git -C "$repo" pull --ff-only --prune --quiet > /dev/null 2>&1; then
       echo "$(date '+%Y-%m-%d %H:%M:%S') - FAST-FORWARD FAILED for: $name" >> "$GIT_SYNC_LOG_FILE"
       echo "pull_failed:$name" >> "$ISSUES_FILE"
     fi
