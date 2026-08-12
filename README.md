@@ -96,8 +96,19 @@ running `git-sync install` — there's no built-in default.
 git-sync status   # is the launchd job loaded? last log lines?
 git-sync logs      # follow the log file
 git-sync run       # run the sync once, right now, outside of launchd,
-                    # printing this run's log lines to stdout as they happen
+                    # printing a one-line status per repo
 git-sync uninstall # unload the job, remove the symlinks
+```
+
+`git-sync run` prints one line per repo under `GIT_SYNC_DEV_DIR`, e.g.:
+
+```
+project-a                up to date
+project-b                updated (3 new commits)
+project-c                skipped (excluded)
+project-d                no upstream (branch=main)
+project-e                non-main branch (wip)
+project-f                pull failed
 ```
 
 ## How it decides what to skip

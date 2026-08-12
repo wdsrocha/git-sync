@@ -25,7 +25,8 @@ fi
 mkdir -p "$GIT_SYNC_STATE_DIR"
 STATE_FILE="$GIT_SYNC_STATE_DIR/last_notified_date"
 ISSUES_FILE=$(mktemp)
-trap 'rm -f "$ISSUES_FILE"' EXIT
+STATUS_FILE=$(mktemp)
+trap 'rm -f "$ISSUES_FILE" "$STATUS_FILE"' EXIT
 
 is_excluded() {
   local name="$1"
@@ -36,9 +37,12 @@ is_excluded() {
 }
 
 log_event() {
-  local line="$1"
-  echo "$line" >> "$GIT_SYNC_LOG_FILE"
-  [ "${GIT_SYNC_FOREGROUND:-0}" = "1" ] && echo "$line"
+  echo "$1" >> "$GIT_SYNC_LOG_FILE"
+}
+
+record_status() {
+  [ "${GIT_SYNC_FOREGROUND:-0}" = "1" ] || return 0
+  printf '%s\t%s\n' "$1" "$2" >> "$STATUS_FILE"
 }
 
 trim_log() {
@@ -53,7 +57,10 @@ for repo in "$GIT_SYNC_DEV_DIR"/*/; do
   repo="${repo%/}"
   name=$(basename "$repo")
 
-  is_excluded "$name" && continue
+  if is_excluded "$name"; then
+    record_status "$name" "skipped (excluded)"
+    continue
+  fi
   [ -d "$repo/.git" ] || continue
 
   (
@@ -63,22 +70,42 @@ for repo in "$GIT_SYNC_DEV_DIR"/*/; do
     if [ -z "$upstream" ]; then
       log_event "$(date '+%Y-%m-%d %H:%M:%S') - NO UPSTREAM for: $name (branch=$branch) - pull skipped"
       echo "no_upstream:$name" >> "$ISSUES_FILE"
+      record_status "$name" "no upstream (branch=$branch)"
       exit 0
     fi
 
     if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
       log_event "$(date '+%Y-%m-%d %H:%M:%S') - NON-MAIN BRANCH for: $name (branch=$branch) - pull skipped"
       echo "non_main_branch:$name" >> "$ISSUES_FILE"
+      record_status "$name" "non-main branch ($branch)"
       exit 0
     fi
 
-    if ! git -C "$repo" pull --ff-only --prune --quiet > /dev/null 2>&1; then
+    before=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+    if git -C "$repo" pull --ff-only --prune --quiet > /dev/null 2>&1; then
+      after=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
+      if [ "$before" = "$after" ]; then
+        record_status "$name" "up to date"
+      else
+        count=$(git -C "$repo" rev-list --count "$before..$after" 2>/dev/null)
+        if [ "$count" = "1" ]; then
+          record_status "$name" "updated (1 new commit)"
+        else
+          record_status "$name" "updated ($count new commits)"
+        fi
+      fi
+    else
       log_event "$(date '+%Y-%m-%d %H:%M:%S') - FAST-FORWARD FAILED for: $name"
       echo "pull_failed:$name" >> "$ISSUES_FILE"
+      record_status "$name" "pull failed"
     fi
   ) &
 done
 wait
+
+if [ "${GIT_SYNC_FOREGROUND:-0}" = "1" ] && [ -s "$STATUS_FILE" ]; then
+  sort "$STATUS_FILE" | awk -F'\t' '{printf "%-24s %s\n", $1, $2}'
+fi
 
 trim_log
 
