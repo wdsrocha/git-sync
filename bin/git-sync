@@ -42,6 +42,7 @@ Configuration (env vars, or \$HOME/.config/git-sync/config.sh):
   GIT_SYNC_NOTIFY_HOUR   earliest local hour to send the daily digest (default: 9)
   GIT_SYNC_LABEL         launchd label (default: local.git-sync)
   GIT_SYNC_INTERVAL      seconds between runs (default: 300)
+  GIT_SYNC_MAX_LOG_LINES max lines kept in the log file (default: 1000)
 EOF
 }
 

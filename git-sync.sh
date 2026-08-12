@@ -30,6 +30,14 @@ is_excluded() {
   return 1
 }
 
+trim_log() {
+  [ -f "$GIT_SYNC_LOG_FILE" ] || return 0
+  local lines
+  lines=$(wc -l < "$GIT_SYNC_LOG_FILE" | tr -d ' ')
+  [ "$lines" -gt "$GIT_SYNC_MAX_LOG_LINES" ] || return 0
+  tail -n "$GIT_SYNC_MAX_LOG_LINES" "$GIT_SYNC_LOG_FILE" > "$GIT_SYNC_LOG_FILE.tmp" && mv "$GIT_SYNC_LOG_FILE.tmp" "$GIT_SYNC_LOG_FILE"
+}
+
 for repo in "$GIT_SYNC_DEV_DIR"/*/; do
   repo="${repo%/}"
   name=$(basename "$repo")
@@ -60,6 +68,8 @@ for repo in "$GIT_SYNC_DEV_DIR"/*/; do
   ) &
 done
 wait
+
+trim_log
 
 if [ -s "$ISSUES_FILE" ]; then
   today=$(date '+%Y-%m-%d')

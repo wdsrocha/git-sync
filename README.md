@@ -62,6 +62,7 @@ worker script and the CLI):
 | `GIT_SYNC_LABEL`          | `local.git-sync` | launchd label, and therefore the plist filename            |
 | `GIT_SYNC_INTERVAL`       | `300`            | Seconds between runs (`install`-time only)                 |
 | `GIT_SYNC_LOG_FILE`       | `$GIT_SYNC_DEV_DIR/sync_errors.log` | Where events are logged                  |
+| `GIT_SYNC_MAX_LOG_LINES`  | `1000`          | Max lines kept in the log file; oldest lines are trimmed past this |
 
 `GIT_SYNC_EXCLUDE_DIRS` is meant for directories that intentionally don't
 follow the "one clean base clone per repo" convention — e.g. a directory

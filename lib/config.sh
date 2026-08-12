@@ -15,3 +15,4 @@ fi
 : "${GIT_SYNC_NOTIFY_HOUR:=9}"
 : "${GIT_SYNC_STATE_DIR:=$HOME/.local/state/git-sync}"
 : "${GIT_SYNC_LOG_FILE:=$GIT_SYNC_DEV_DIR/sync_errors.log}"
+: "${GIT_SYNC_MAX_LOG_LINES:=1000}"
