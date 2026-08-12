@@ -1,7 +1,7 @@
 # git-sync
 
-Keeps every git repository in a directory (by default `~/dev`) up to date with
-its remote, automatically, in the background, on macOS via `launchd`.
+Keeps every git repository in a directory you configure up to date with its
+remote, automatically, in the background, on macOS via `launchd`.
 
 It only ever does a `git pull --ff-only --prune`. It never touches a repo that
 isn't safely fast-forwardable, and it never switches branches for you:
@@ -30,6 +30,16 @@ do.
 
 Requires macOS (`launchd`, `osascript`), `bash`, and `git`.
 
+`GIT_SYNC_DEV_DIR` has no default — it must be set before installing, so the
+job never ends up scanning a directory you didn't choose:
+
+```sh
+mkdir -p ~/.config/git-sync
+echo 'GIT_SYNC_DEV_DIR="$HOME/dev"' >> ~/.config/git-sync/config.sh
+```
+
+Then:
+
 ```sh
 git clone git@github.com:wdsrocha/git-sync.git
 cd git-sync
@@ -56,8 +66,8 @@ worker script and the CLI):
 
 | Variable                 | Default          | Meaning                                                   |
 | ------------------------ | ---------------- | ---------------------------------------------------------- |
-| `GIT_SYNC_DEV_DIR`        | `$HOME/dev`      | Directory to scan for repositories (one level deep)        |
-| `GIT_SYNC_EXCLUDE_DIRS`   | `wt`             | Space-separated directory names to skip entirely           |
+| `GIT_SYNC_DEV_DIR`        | *(required, no default)* | Directory to scan for repositories (one level deep) |
+| `GIT_SYNC_EXCLUDE_DIRS`   | *(none)*         | Space-separated directory names to skip entirely           |
 | `GIT_SYNC_NOTIFY_HOUR`    | `9`              | Earliest local hour (0-23) to send the daily digest        |
 | `GIT_SYNC_LABEL`          | `local.git-sync` | launchd label, and therefore the plist filename            |
 | `GIT_SYNC_INTERVAL`       | `300`            | Seconds between runs (`install`-time only)                 |
@@ -76,6 +86,9 @@ GIT_SYNC_DEV_DIR="$HOME/code"
 GIT_SYNC_EXCLUDE_DIRS="worktrees scratch"
 GIT_SYNC_NOTIFY_HOUR=8
 ```
+
+`GIT_SYNC_DEV_DIR` must be set here (or as an environment variable) before
+running `git-sync install` — there's no built-in default.
 
 ## Usage
 

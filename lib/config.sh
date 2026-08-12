@@ -3,6 +3,10 @@
 # Override any of these by exporting the variable before running git-sync, or by
 # creating a config file at $HOME/.config/git-sync/config.sh (or a custom path via
 # GIT_SYNC_CONFIG) that sets them.
+#
+# GIT_SYNC_DEV_DIR has no default: it must be set explicitly (env var or config
+# file) before running `git-sync install`, so setup never silently points at a
+# directory the user didn't choose.
 
 CONFIG_FILE="${GIT_SYNC_CONFIG:-$HOME/.config/git-sync/config.sh}"
 if [ -f "$CONFIG_FILE" ]; then
@@ -10,9 +14,8 @@ if [ -f "$CONFIG_FILE" ]; then
   source "$CONFIG_FILE"
 fi
 
-: "${GIT_SYNC_DEV_DIR:=$HOME/dev}"
-: "${GIT_SYNC_EXCLUDE_DIRS:=wt}"
+: "${GIT_SYNC_EXCLUDE_DIRS:=}"
 : "${GIT_SYNC_NOTIFY_HOUR:=9}"
 : "${GIT_SYNC_STATE_DIR:=$HOME/.local/state/git-sync}"
-: "${GIT_SYNC_LOG_FILE:=$GIT_SYNC_DEV_DIR/sync_errors.log}"
+: "${GIT_SYNC_LOG_FILE:=${GIT_SYNC_DEV_DIR:-$HOME}/sync_errors.log}"
 : "${GIT_SYNC_MAX_LOG_LINES:=1000}"

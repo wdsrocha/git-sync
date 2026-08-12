@@ -1,7 +1,7 @@
 #!/bin/bash
-# Pulls every git repository directly under GIT_SYNC_DEV_DIR (default: ~/dev),
-# skipping anything that isn't safely fast-forwardable. Meant to be run on a
-# timer (see launchd/), but safe to run by hand too.
+# Pulls every git repository directly under GIT_SYNC_DEV_DIR, skipping anything
+# that isn't safely fast-forwardable. Meant to be run on a timer (see
+# launchd/), but safe to run by hand too.
 set -uo pipefail
 PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH
 
@@ -16,6 +16,11 @@ done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/config.sh"
+
+if [ -z "${GIT_SYNC_DEV_DIR:-}" ]; then
+  echo "GIT_SYNC_DEV_DIR is not set. Set it via env var or \$HOME/.config/git-sync/config.sh, then run 'git-sync install' again." >&2
+  exit 1
+fi
 
 mkdir -p "$GIT_SYNC_STATE_DIR"
 STATE_FILE="$GIT_SYNC_STATE_DIR/last_notified_date"

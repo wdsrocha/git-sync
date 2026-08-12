@@ -37,8 +37,8 @@ Commands:
   run         Run the sync once, immediately, without going through launchd
 
 Configuration (env vars, or \$HOME/.config/git-sync/config.sh):
-  GIT_SYNC_DEV_DIR       directory to scan for repos (default: \$HOME/dev)
-  GIT_SYNC_EXCLUDE_DIRS  space-separated directory names to skip (default: wt)
+  GIT_SYNC_DEV_DIR       directory to scan for repos (required, no default)
+  GIT_SYNC_EXCLUDE_DIRS  space-separated directory names to skip (default: none)
   GIT_SYNC_NOTIFY_HOUR   earliest local hour to send the daily digest (default: 9)
   GIT_SYNC_LABEL         launchd label (default: local.git-sync)
   GIT_SYNC_INTERVAL      seconds between runs (default: 300)
@@ -47,6 +47,12 @@ EOF
 }
 
 cmd_install() {
+  if [ -z "${GIT_SYNC_DEV_DIR:-}" ]; then
+    echo "GIT_SYNC_DEV_DIR is not set. Export it or set it in \$HOME/.config/git-sync/config.sh before running install, e.g.:" >&2
+    echo "  echo 'GIT_SYNC_DEV_DIR=\"\$HOME/dev\"' >> \$HOME/.config/git-sync/config.sh" >&2
+    exit 1
+  fi
+
   mkdir -p "$HOME/.local/bin" "$HOME/Library/LaunchAgents"
 
   ln -sf "$REPO_DIR/git-sync.sh" "$WORKER_LINK"
