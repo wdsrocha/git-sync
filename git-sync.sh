@@ -35,6 +35,12 @@ is_excluded() {
   return 1
 }
 
+log_event() {
+  local line="$1"
+  echo "$line" >> "$GIT_SYNC_LOG_FILE"
+  [ "${GIT_SYNC_FOREGROUND:-0}" = "1" ] && echo "$line"
+}
+
 trim_log() {
   [ -f "$GIT_SYNC_LOG_FILE" ] || return 0
   local lines
@@ -55,19 +61,19 @@ for repo in "$GIT_SYNC_DEV_DIR"/*/; do
     upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
 
     if [ -z "$upstream" ]; then
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - NO UPSTREAM for: $name (branch=$branch) - pull skipped" >> "$GIT_SYNC_LOG_FILE"
+      log_event "$(date '+%Y-%m-%d %H:%M:%S') - NO UPSTREAM for: $name (branch=$branch) - pull skipped"
       echo "no_upstream:$name" >> "$ISSUES_FILE"
       exit 0
     fi
 
     if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - NON-MAIN BRANCH for: $name (branch=$branch) - pull skipped" >> "$GIT_SYNC_LOG_FILE"
+      log_event "$(date '+%Y-%m-%d %H:%M:%S') - NON-MAIN BRANCH for: $name (branch=$branch) - pull skipped"
       echo "non_main_branch:$name" >> "$ISSUES_FILE"
       exit 0
     fi
 
     if ! git -C "$repo" pull --ff-only --prune --quiet > /dev/null 2>&1; then
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - FAST-FORWARD FAILED for: $name" >> "$GIT_SYNC_LOG_FILE"
+      log_event "$(date '+%Y-%m-%d %H:%M:%S') - FAST-FORWARD FAILED for: $name"
       echo "pull_failed:$name" >> "$ISSUES_FILE"
     fi
   ) &

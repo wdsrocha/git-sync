@@ -102,7 +102,7 @@ cmd_logs() {
 }
 
 cmd_run() {
-  bash "$REPO_DIR/git-sync.sh"
+  GIT_SYNC_FOREGROUND=1 bash "$REPO_DIR/git-sync.sh"
 }
 
 case "${1:-}" in

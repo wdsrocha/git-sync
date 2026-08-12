@@ -95,7 +95,8 @@ running `git-sync install` — there's no built-in default.
 ```sh
 git-sync status   # is the launchd job loaded? last log lines?
 git-sync logs      # follow the log file
-git-sync run       # run the sync once, right now, outside of launchd
+git-sync run       # run the sync once, right now, outside of launchd,
+                    # printing this run's log lines to stdout as they happen
 git-sync uninstall # unload the job, remove the symlinks
 ```
 
